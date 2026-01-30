@@ -177,7 +177,7 @@ function AuditLog() {
 
         {filteredLogs.length > 0 && (
           <div className="table-scroll">
-            <table>
+            <table className="table-wide">
               <thead>
                 <tr>
                   <th>Time</th>
