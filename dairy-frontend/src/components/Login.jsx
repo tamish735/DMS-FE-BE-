@@ -1,179 +1,170 @@
-// import { useState } from "react";
-
-// function Login() {
-//     const [username, setUsername] = useState("");
-//     const [password, setPassword] = useState("");
-//     const [error, setError] = useState("");
-//     const [loading, setLoading] = useState(false);
-
-
-//     const handleLogin = async () => {
-//         setError("");
-//         setLoading(true);
-
-//         try {
-//             const response = await fetch("http://localhost:5001/auth/login", {
-//                 method: "POST",
-//                 headers: {
-//                     "Content-Type": "application/json"
-//                 },
-//                 body: JSON.stringify({
-//                     username,
-//                     password
-//                 })
-//             });
-
-//             const data = await response.json();
-
-//             if (!response.ok) {
-//                 throw new Error(data.message || "Login failed");
-//             }
-
-//             // SUCCESS
-//             localStorage.setItem("token", data.token);
-//             alert("Login successful");
-
-//         } catch (err) {
-//             setError(err.message);
-//         } finally {
-//             setLoading(false);
-//         }
-//     };
-//     return (
-//         <div style={{ maxWidth: "300px", margin: "50px auto" }}>
-
-
-//             <div>
-//                 <input
-//                     type="text"
-//                     placeholder="Username"
-//                     value={username}
-//                     onChange={(e) => setUsername(e.target.value)}
-//                 />
-//             </div>
-
-//             <div>
-//                 <input
-//                     type="password"
-//                     placeholder="Password"
-//                     value={password}
-//                     onChange={(e) => setPassword(e.target.value)}
-//                 />
-//             </div>
-
-//             <button onClick={handleLogin} disabled={loading}>
-//                 {loading ? "Logging in..." : "Login"}
-//             </button>
-
-//             {error && <p style={{ color: "red" }}>{error}</p>}
-//         </div>
-//     );
-// }
-
-// export default Login;
-
-
 import { useState } from "react";
+import logo from "../assets/logo.png"; // ✅ CORRECT IMPORT
 
 function Login({ onLoginSuccess }) {
     const [username, setUsername] = useState("");
     const [password, setPassword] = useState("");
+    const [showPassword, setShowPassword] = useState(false);
+    const [capsLockOn, setCapsLockOn] = useState(false);
     const [error, setError] = useState("");
     const [loading, setLoading] = useState(false);
 
     const handleLogin = async () => {
+        if (loading) return;
+
         setError("");
         setLoading(true);
 
         try {
             const response = await fetch("http://localhost:5001/login", {
                 method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                },
-                body: JSON.stringify({
-                    username,
-                    password,
-                }),
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ username, password }),
             });
 
-            if (!response.ok) {
-                const errText = await response.text();
-                throw new Error(errText || "Login failed");
-            }
+            if (!response.ok) throw new Error();
 
             const data = await response.json();
-
             localStorage.setItem("token", data.token);
-
             onLoginSuccess();
-
-        } catch (err) {
+        } catch {
             setError("Invalid username or password");
         } finally {
             setLoading(false);
         }
     };
+
+    const handleKeyDown = (e) => {
+        setCapsLockOn(e.getModifierState("CapsLock"));
+        if (e.key === "Enter") handleLogin();
+    };
+
     return (
         <div
             style={{
-                maxWidth: "400px",
-                margin: "40px auto",
-                padding: "20px",
-                border: "1px solid #ddd",
-                borderRadius: "8px",
+                width: "100vw",          // 🔑 forces full width
+                height: "100vh",
+                backgroundColor: "#ffffff",
+                display: "flex",
+                justifyContent: "center",
+                alignItems: "center",
             }}
         >
-            <h2 style={{ textAlign: "center" }}>Login</h2>
-
-            <div style={{ marginBottom: "12px" }}>
-                <input
-                    type="text"
-                    placeholder="Username"
-                    value={username}
-                    onChange={(e) => setUsername(e.target.value)}
-                    style={{
-                        width: "100%",
-                        padding: "10px",
-                        fontSize: "16px",
-                    }}
-                />
-            </div>
-
-            <div style={{ marginBottom: "12px" }}>
-                <input
-                    type="password"
-                    placeholder="Password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    style={{
-                        width: "100%",
-                        padding: "10px",
-                        fontSize: "16px",
-                    }}
-                />
-            </div>
-
-            <button
-                onClick={handleLogin}
-                disabled={loading}
+            <div
                 style={{
                     width: "100%",
-                    padding: "10px",
-                    fontSize: "16px",
-                    cursor: "pointer",
+                    maxWidth: 420,
+                    height: "70vh",
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
                 }}
             >
-                {loading ? "Logging in..." : "Login"}
-            </button>
+                {/* LOGO SECTION */}
+                <div
+                    style={{
+                        flex: 1,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                    }}
+                >
+                    <img
+                        src={logo}
+                        alt="Brand Logo"
+                        style={{ maxWidth: "220px", width: "100%" }}
+                    />
+                </div>
 
-            {error && (
-                <p style={{ color: "red", marginTop: "10px", textAlign: "center" }}>
-                    {error}
-                </p>
-            )}
+                {/* LOGIN FORM */}
+                <div
+                    style={{
+                        width: "100%",
+                        padding: "0 20px",
+                    }}
+                >
+                    <input
+                        type="text"
+                        placeholder="Username"
+                        value={username}
+                        onChange={(e) => setUsername(e.target.value)}
+                        onKeyDown={handleKeyDown}
+                        style={inputStyle}
+                    />
+
+                    <div style={{ position: "relative" }}>
+                        <input
+                            type={showPassword ? "text" : "password"}
+                            placeholder="Password"
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            onKeyDown={handleKeyDown}
+                            style={inputStyle}
+                        />
+
+                        {/* SHOW / HIDE ICON */}
+                        <span
+                            onClick={() => setShowPassword(!showPassword)}
+                            style={{
+                                position: "absolute",
+                                right: 12,
+                                top: "50%",
+                                transform: "translateY(-50%)",
+                                cursor: "pointer",
+                                fontSize: 18,
+                            }}
+                        >
+                            {showPassword ? "🙈" : "👁"}
+                        </span>
+                    </div>
+
+                    {/* CAPS LOCK WARNING */}
+                    {capsLockOn && (
+                        <p style={{ color: "#d97706", fontSize: 13, marginTop: 6 }}>
+                            ⚠ Caps Lock is ON
+                        </p>
+                    )}
+
+                    <button
+                        onClick={handleLogin}
+                        disabled={loading}
+                        style={{
+                            width: "100%",
+                            padding: "12px",
+                            marginTop: 16,
+                            fontSize: 16,
+                            cursor: "pointer",
+                        }}
+                    >
+                        {loading ? "Logging in..." : "Login"}
+                    </button>
+
+                    {error && (
+                        <p
+                            style={{
+                                color: "red",
+                                marginTop: 12,
+                                textAlign: "center",
+                            }}
+                        >
+                            {error}
+                        </p>
+                    )}
+                </div>
+            </div>
         </div>
     );
 }
 
+const inputStyle = {
+    width: "100%",
+    padding: "12px",
+    fontSize: 16,
+    marginBottom: 14,
+    borderRadius: 6,
+    border: "1px solid #ccc",
+};
+
 export default Login;
+
+
