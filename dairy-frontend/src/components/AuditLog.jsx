@@ -9,7 +9,6 @@ function AuditLog() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  /* FILTERS */
   const [actionFilter, setActionFilter] = useState("");
   const [entityFilter, setEntityFilter] = useState("");
   const [roleFilter, setRoleFilter] = useState("");
@@ -17,10 +16,9 @@ function AuditLog() {
   const [toDate, setToDate] = useState("");
 
   /* =========================
-     AUTH + ROLE
+     AUTH
   ========================= */
   const token = localStorage.getItem("token");
-
   const authHeader = token?.startsWith("Bearer ")
     ? token
     : token
@@ -30,7 +28,7 @@ function AuditLog() {
   const [role, setRole] = useState(null);
 
   useEffect(() => {
-    if (!token) return setRole(null);
+    if (!token) return;
     try {
       const decoded = jwtDecode(token);
       setRole(decoded.role || null);
@@ -42,7 +40,7 @@ function AuditLog() {
   const isSuperAdmin = role === "super_admin";
 
   /* =========================
-     FETCH AUDIT LOGS
+     FETCH LOGS
   ========================= */
   useEffect(() => {
     if (!isSuperAdmin) {
@@ -71,7 +69,7 @@ function AuditLog() {
   }, [isSuperAdmin, authHeader]);
 
   /* =========================
-     UNIQUE VALUES FOR FILTERS
+     FILTER HELPERS
   ========================= */
   const actions = useMemo(
     () => [...new Set(logs.map((l) => l.action))],
@@ -86,9 +84,6 @@ function AuditLog() {
     [logs]
   );
 
-  /* =========================
-     FILTERED LOGS
-  ========================= */
   const filteredLogs = useMemo(() => {
     return logs.filter((log) => {
       if (actionFilter && log.action !== actionFilter) return false;
@@ -103,9 +98,14 @@ function AuditLog() {
     });
   }, [logs, actionFilter, entityFilter, roleFilter, fromDate, toDate]);
 
-  /* =========================
-     HELPERS
-  ========================= */
+  const resetFilters = () => {
+    setActionFilter("");
+    setEntityFilter("");
+    setRoleFilter("");
+    setFromDate("");
+    setToDate("");
+  };
+
   const formatTime = (ts) =>
     new Date(ts).toLocaleString("en-IN", {
       day: "2-digit",
@@ -115,93 +115,98 @@ function AuditLog() {
       minute: "2-digit",
     });
 
-  const resetFilters = () => {
-    setActionFilter("");
-    setEntityFilter("");
-    setRoleFilter("");
-    setFromDate("");
-    setToDate("");
-  };
-
-  /* =========================
-     GUARDS
-  ========================= */
   if (!isSuperAdmin) return null;
   if (loading) return <p>Loading audit logs...</p>;
   if (error) return <p style={{ color: "red" }}>{error}</p>;
 
+  /* =========================
+     RENDER (MATCHES MONTHLY LEDGER)
+  ========================= */
   return (
-    <div style={{ marginTop: 20, padding: 16, border: "1px solid #ddd" }}>
-      <h3>Audit Logs</h3>
+    <>
+      {/* =========================
+         FILTERS (ALWAYS VISIBLE)
+      ========================= */}
+      <div className="card">
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
+            gap: 12,
+          }}
+        >
+          <select value={actionFilter} onChange={(e) => setActionFilter(e.target.value)}>
+            <option value="">Action</option>
+            {actions.map((a) => (
+              <option key={a} value={a}>{a}</option>
+            ))}
+          </select>
 
-      {/* FILTER BAR */}
-      <div
-        style={{
-          display: "flex",
-          gap: 12,
-          flexWrap: "wrap",
-          marginBottom: 12,
-        }}
-      >
-        <select value={actionFilter} onChange={(e) => setActionFilter(e.target.value)}>
-          <option value="">All Actions</option>
-          {actions.map((a) => (
-            <option key={a} value={a}>{a}</option>
-          ))}
-        </select>
+          <select value={entityFilter} onChange={(e) => setEntityFilter(e.target.value)}>
+            <option value="">Entity</option>
+            {entities.map((e) => (
+              <option key={e} value={e}>{e}</option>
+            ))}
+          </select>
 
-        <select value={entityFilter} onChange={(e) => setEntityFilter(e.target.value)}>
-          <option value="">All Entities</option>
-          {entities.map((e) => (
-            <option key={e} value={e}>{e}</option>
-          ))}
-        </select>
+          <select value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)}>
+            <option value="">Role</option>
+            {roles.map((r) => (
+              <option key={r} value={r}>{r}</option>
+            ))}
+          </select>
 
-        <select value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)}>
-          <option value="">All Roles</option>
-          {roles.map((r) => (
-            <option key={r} value={r}>{r}</option>
-          ))}
-        </select>
+          <input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
+          <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} />
 
-        <input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
-        <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} />
-
-        <button onClick={resetFilters}>View All</button>
+          <button onClick={resetFilters}>Reset</button>
+        </div>
       </div>
 
-      {/* TABLE */}
-      {filteredLogs.length === 0 && <p>No audit activity found.</p>}
+      {/* =========================
+         SCROLLABLE DATA AREA
+      ========================= */}
+      <div
+        className="card"
+        style={{
+          height: "calc(100vh - 240px)", // same idea as MonthlyLedger
+          overflow: "auto",
+        }}
+      >
+        {filteredLogs.length === 0 && <p>No audit activity found.</p>}
 
-      {filteredLogs.length > 0 && (
-        <table width="100%" border="1" cellPadding="6" style={{ borderCollapse: "collapse" }}>
-          <thead>
-            <tr>
-              <th>Time</th>
-              <th>Action</th>
-              <th>Entity</th>
-              <th>Actor Role</th>
-              <th>Details</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredLogs.map((log) => (
-              <tr key={log.id}>
-                <td>{formatTime(log.created_at)}</td>
-                <td>{log.action}</td>
-                <td>{log.entity} #{log.entity_id}</td>
-                <td>{log.role}</td>
-                <td>
-                  <pre style={{ margin: 0, fontSize: 12 }}>
-                    {JSON.stringify(log.details, null, 2)}
-                  </pre>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
-    </div>
+        {filteredLogs.length > 0 && (
+          <div className="table-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th>Time</th>
+                  <th>Action</th>
+                  <th>Entity</th>
+                  <th>Role</th>
+                  <th>Details</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredLogs.map((log) => (
+                  <tr key={log.id}>
+                    <td>{formatTime(log.created_at)}</td>
+                    <td>{log.action}</td>
+                    <td>{log.entity} #{log.entity_id}</td>
+                    <td>{log.role}</td>
+                    <td>
+                      <pre style={{ margin: 0 }}>
+                        {JSON.stringify(log.details, null, 2)}
+                      </pre>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </>
   );
 }
 

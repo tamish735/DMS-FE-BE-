@@ -43,7 +43,7 @@ function MonthlyLedger() {
   }, []);
 
   /* =========================
-     FETCH LEDGER (JSON)
+     FETCH LEDGER
   ========================= */
   useEffect(() => {
     if (!customerId || !month) {
@@ -74,7 +74,9 @@ function MonthlyLedger() {
         setRows(Array.isArray(data.rows) ? data.rows : []);
         setCustomerInfo(data.customer || null);
         setSummary(data.summary || null);
-        setProductSummary(Array.isArray(data.product_summary) ? data.product_summary : []);
+        setProductSummary(
+          Array.isArray(data.product_summary) ? data.product_summary : []
+        );
       } catch (err) {
         setError(err.message || "Failed to load ledger");
         setRows([]);
@@ -90,8 +92,15 @@ function MonthlyLedger() {
   }, [customerId, month]);
 
   /* =========================
-     DOWNLOAD HELPER
+     HELPERS
   ========================= */
+  const fmtDate = (d) =>
+    new Date(d).toLocaleDateString("en-IN", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
+
   const downloadBlob = (blob, filename) => {
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -104,7 +113,7 @@ function MonthlyLedger() {
   };
 
   /* =========================
-     EXPORT CSV
+     EXPORTS
   ========================= */
   const exportCSV = async () => {
     if (!customerId || !month) {
@@ -112,177 +121,177 @@ function MonthlyLedger() {
       return;
     }
 
-    try {
-      const res = await fetch(
-        `http://localhost:5001/reports/customer-ledger/export?customer_id=${customerId}&month=${month}`,
-        { headers: { Authorization: authHeader } }
-      );
+    const res = await fetch(
+      `http://localhost:5001/reports/customer-ledger/export?customer_id=${customerId}&month=${month}`,
+      { headers: { Authorization: authHeader } }
+    );
 
-      if (!res.ok) {
-        const msg = await res.text();
-        throw new Error(msg || "CSV export failed");
-      }
-
-      const blob = await res.blob();
-      downloadBlob(blob, `customer_${customerId}_${month}.csv`);
-    } catch (err) {
-      alert(err.message || "CSV export failed");
+    if (!res.ok) {
+      alert("CSV export failed");
+      return;
     }
+
+    const blob = await res.blob();
+    downloadBlob(blob, `customer_${customerId}_${month}.csv`);
   };
 
-  /* =========================
-     EXPORT PDF
-  ========================= */
   const exportPDF = async () => {
     if (!customerId || !month) {
       alert("Select customer and month first");
       return;
     }
 
-    try {
-      const res = await fetch(
-        `http://localhost:5001/reports/customer-ledger/pdf?customer_id=${customerId}&month=${month}`,
-        { headers: { Authorization: authHeader } }
-      );
+    const res = await fetch(
+      `http://localhost:5001/reports/customer-ledger/pdf?customer_id=${customerId}&month=${month}`,
+      { headers: { Authorization: authHeader } }
+    );
 
-      if (!res.ok) {
-        const msg = await res.text();
-        throw new Error(msg || "PDF export failed");
-      }
-
-      const blob = await res.blob();
-      downloadBlob(blob, `customer_${customerId}_${month}.pdf`);
-    } catch (err) {
-      alert(err.message || "PDF export failed");
+    if (!res.ok) {
+      alert("PDF export failed");
+      return;
     }
-  };
 
-  /* =========================
-     FORMATTERS
-  ========================= */
-  const fmtDate = (d) =>
-    new Date(d).toLocaleDateString("en-IN", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    });
+    const blob = await res.blob();
+    downloadBlob(blob, `customer_${customerId}_${month}.pdf`);
+  };
 
   /* =========================
      RENDER
   ========================= */
   return (
-    <div style={{ marginTop: 24, padding: 16, border: "1px solid #ddd" }}>
-      <h3>Monthly Customer Ledger</h3>
+    <div className="page-container">
+      {/* =========================
+         FIXED HEADER / FILTERS
+      ========================= */}
+      <div className="card">
+        {/* <h3>Monthly Customer Ledger</h3> */}
 
-      {/* FILTERS */}
-      <div style={{ display: "flex", gap: 16, marginBottom: 16, flexWrap: "wrap" }}>
-        <div>
-          <label>Customer</label><br />
-          <select value={customerId} onChange={(e) => setCustomerId(e.target.value)}>
-            <option value="">Select customer</option>
-            {customers.map((c) => (
-              <option key={c.id} value={c.id}>{c.name}</option>
-            ))}
-          </select>
-        </div>
+        <div style={{ display: "flex", gap: 16, flexWrap: "wrap", marginTop: 12 }}>
+          <div>
+            <label>Customer</label>
+            <select
+              value={customerId}
+              onChange={(e) => setCustomerId(e.target.value)}
+            >
+              <option value="">Select customer</option>
+              {customers.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+          </div>
 
-        <div>
-          <label>Month</label><br />
-          <input type="month" value={month} onChange={(e) => setMonth(e.target.value)} />
-        </div>
+          <div>
+            <label>Month</label>
+            <input
+              type="month"
+              value={month}
+              onChange={(e) => setMonth(e.target.value)}
+            />
+          </div>
 
-        <div style={{ alignSelf: "flex-end", display: "flex", gap: 8 }}>
-          <button onClick={exportCSV} disabled={loading || rows.length === 0}>
-            Export CSV
-          </button>
-          <button onClick={exportPDF} disabled={loading || rows.length === 0}>
-            Export PDF
-          </button>
+          <div style={{ alignSelf: "flex-end", display: "flex", gap: 8 }}>
+            <button onClick={exportCSV} disabled={loading || rows.length === 0}>
+              Export CSV
+            </button>
+            <button onClick={exportPDF} disabled={loading || rows.length === 0}>
+              Export PDF
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* SUMMARY SECTION */}
-      {summary && (
-        <div style={{ display: "flex", gap: 16, marginBottom: 20, flexWrap: "wrap" }}>
-          <div style={{ border: "1px solid #ccc", padding: 12 }}>
-            <strong>Total Sales</strong>
-            <div>₹ {summary.total_sales}</div>
-          </div>
+      {/* =========================
+         SCROLLABLE CONTENT
+      ========================= */}
+      <div
+        className="card"
+        style={{
+          height: "calc(100vh - 240px)",
+          overflowY: "auto",
+        }}
+      >
+        {loading && <p>Loading ledger...</p>}
+        {error && <p style={{ color: "red" }}>{error}</p>}
 
-          <div style={{ border: "1px solid #ccc", padding: 12 }}>
-            <strong>Total Payments</strong>
-            <div>₹ {summary.total_payments}</div>
+        {summary && (
+          <div style={{ display: "flex", gap: 16, marginBottom: 20, flexWrap: "wrap" }}>
+            <div className="card">
+              <strong>Total Sales</strong>
+              <div>₹ {summary.total_sales}</div>
+            </div>
+            <div className="card">
+              <strong>Total Payments</strong>
+              <div>₹ {summary.total_payments}</div>
+            </div>
+            <div className="card">
+              <strong>Closing Balance</strong>
+              <div>₹ {summary.closing_balance}</div>
+            </div>
           </div>
+        )}
 
-          <div style={{ border: "1px solid #ccc", padding: 12 }}>
-            <strong>Closing Balance</strong>
-            <div>₹ {summary.closing_balance}</div>
-          </div>
-        </div>
-      )}
-
-      {/* PRODUCT SUMMARY */}
-      {productSummary.length > 0 && (
-        <div style={{ marginBottom: 20 }}>
-          <h4>Product-wise Summary</h4>
-          <table width="100%" border="1" cellPadding="6">
-            <thead>
-              <tr>
-                <th>Product</th>
-                <th>Total Quantity</th>
-                <th>Total Amount</th>
-              </tr>
-            </thead>
-            <tbody>
-              {productSummary.map((p, i) => (
-                <tr key={i}>
-                  <td>{p.product_name}</td>
-                  <td align="right">{p.total_quantity}</td>
-                  <td align="right">₹ {p.total_amount}</td>
+        {productSummary.length > 0 && (
+          <>
+            <h4>Product-wise Summary</h4>
+            <table>
+              <thead>
+                <tr>
+                  <th>Product</th>
+                  <th>Total Quantity</th>
+                  <th>Total Amount</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+              </thead>
+              <tbody>
+                {productSummary.map((p, i) => (
+                  <tr key={i}>
+                    <td>{p.product_name}</td>
+                    <td align="right">{p.total_quantity}</td>
+                    <td align="right">₹ {p.total_amount}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </>
+        )}
 
-      {/* STATUS */}
-      {loading && <p>Loading ledger...</p>}
-      {error && <p style={{ color: "red" }}>{error}</p>}
+        {!loading && rows.length > 0 && (
+          <>
+            <h4 style={{ marginTop: 20 }}>Ledger Entries</h4>
+            <table>
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Type</th>
+                  <th>Product</th>
+                  <th>Qty</th>
+                  <th>Debit</th>
+                  <th>Credit</th>
+                  <th>Balance</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((r, i) => (
+                  <tr key={i}>
+                    <td>{fmtDate(r.date)}</td>
+                    <td>{r.type}</td>
+                    <td>{r.product || "-"}</td>
+                    <td align="right">{r.quantity ?? "-"}</td>
+                    <td align="right">{r.debit ?? "-"}</td>
+                    <td align="right">{r.credit ?? "-"}</td>
+                    <td align="right">{r.balance}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </>
+        )}
 
-      {/* LEDGER TABLE */}
-      {!loading && rows.length > 0 && (
-        <table width="100%" border="1" cellPadding="6">
-          <thead>
-            <tr>
-              <th>Date</th>
-              <th>Type</th>
-              <th>Product</th>
-              <th>Qty</th>
-              <th>Debit</th>
-              <th>Credit</th>
-              <th>Balance</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((r, i) => (
-              <tr key={i}>
-                <td>{fmtDate(r.date)}</td>
-                <td>{r.type}</td>
-                <td>{r.product || "-"}</td>
-                <td align="right">{r.quantity ?? "-"}</td>
-                <td align="right">{r.debit ?? "-"}</td>
-                <td align="right">{r.credit ?? "-"}</td>
-                <td align="right">{r.balance}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
-
-      {!loading && customerId && month && rows.length === 0 && (
-        <p>No ledger entries found.</p>
-      )}
+        {!loading && customerId && month && rows.length === 0 && (
+          <p>No ledger entries found.</p>
+        )}
+      </div>
     </div>
   );
 }
