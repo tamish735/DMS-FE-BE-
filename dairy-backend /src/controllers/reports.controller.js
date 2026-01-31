@@ -3,25 +3,31 @@ const { query } = require("../config/db");
 const PDFDocument = require("pdfkit");
 
 /* ======================================================
-   HELPER: SAFE DATE RANGE
+   HELPER: SAFE DATE RANGE (NO UTC, NO MISSING DAYS)
 ====================================================== */
 const getDateRange = ({ month, from, to }) => {
-  if (from && to) return { fromDate: from, toDate: to };
+  if (from && to) {
+    return { fromDate: from, toDate: to };
+  }
 
-  if (!month) throw new Error("month or from/to required");
+  if (!month) {
+    throw new Error("month or from/to required");
+  }
 
   const [year, m] = month.split("-").map(Number);
-  const fromDate = new Date(year, m - 1, 1);
-  const toDate = new Date(year, m, 0);
 
-  return {
-    fromDate: fromDate.toISOString().slice(0, 10),
-    toDate: toDate.toISOString().slice(0, 10),
-  };
+  // Month start: YYYY-MM-01
+  const fromDate = `${year}-${String(m).padStart(2, "0")}-01`;
+
+  // Month end: last day of month (handles 28/29/30/31 automatically)
+  const lastDay = new Date(year, m, 0).getDate();
+  const toDate = `${year}-${String(m).padStart(2, "0")}-${lastDay}`;
+
+  return { fromDate, toDate };
 };
 
 /* ======================================================
-   JSON LEDGER REPORT (PRODUCT SUMMARY FIXED)
+   JSON LEDGER REPORT
 ====================================================== */
 const getCustomerLedgerReport = async (req, res) => {
   try {
@@ -39,18 +45,19 @@ const getCustomerLedgerReport = async (req, res) => {
     );
     const customer = customerRes.rows[0] || {};
 
-    /* ---------- OPENING ---------- */
+    /* ---------- OPENING BALANCE ---------- */
     const openingRes = await query(
       `
       SELECT COALESCE(SUM(
         CASE
-          WHEN event_type='SALE' THEN amount
-          WHEN event_type='PAYMENT' THEN -amount
+          WHEN event_type = 'SALE' THEN amount
+          WHEN event_type = 'PAYMENT' THEN -amount
           ELSE 0
         END
-      ),0) AS opening
+      ), 0) AS opening
       FROM ledger_events
-      WHERE customer_id=$1 AND business_date < $2
+      WHERE customer_id = $1
+        AND business_date < $2
       `,
       [customer_id, fromDate]
     );
@@ -70,7 +77,7 @@ const getCustomerLedgerReport = async (req, res) => {
         p.name AS product_name
       FROM ledger_events le
       LEFT JOIN products p ON p.id = le.product_id
-      WHERE le.customer_id=$1
+      WHERE le.customer_id = $1
         AND le.business_date BETWEEN $2 AND $3
       ORDER BY le.business_date, le.created_at
       `,
@@ -103,9 +110,7 @@ const getCustomerLedgerReport = async (req, res) => {
       };
     });
 
-    /* ======================================================
-       ✅ PRODUCT-WISE SUMMARY (FIXED KEY NAME)
-    ====================================================== */
+    /* ---------- PRODUCT SUMMARY ---------- */
     const productSummaryRes = await query(
       `
       SELECT
@@ -131,7 +136,7 @@ const getCustomerLedgerReport = async (req, res) => {
         total_payments: Number(totalPayments.toFixed(2)),
         closing_balance: Number(runningBalance.toFixed(2)),
       },
-      product_summary: productSummaryRes.rows, // ✅ product_name now present
+      product_summary: productSummaryRes.rows,
       rows,
     });
   } catch (err) {
@@ -141,12 +146,14 @@ const getCustomerLedgerReport = async (req, res) => {
 };
 
 /* ======================================================
-   CSV EXPORT — PRODUCT SUMMARY INCLUDED
+   CSV EXPORT
 ====================================================== */
 const exportCustomerLedgerCSV = async (req, res) => {
   try {
     const { customer_id } = req.query;
-    if (!customer_id) return res.status(400).send("customer_id is required");
+    if (!customer_id) {
+      return res.status(400).send("customer_id is required");
+    }
 
     const { fromDate, toDate } = getDateRange(req.query);
 
@@ -185,12 +192,14 @@ const exportCustomerLedgerCSV = async (req, res) => {
 };
 
 /* ======================================================
-   PDF EXPORT — PRODUCT SUMMARY TABLE
+   PDF EXPORT
 ====================================================== */
 const exportCustomerLedgerPDF = async (req, res) => {
   try {
     const { customer_id } = req.query;
-    if (!customer_id) return res.status(400).send("customer_id is required");
+    if (!customer_id) {
+      return res.status(400).send("customer_id is required");
+    }
 
     const { fromDate, toDate } = getDateRange(req.query);
 
@@ -217,6 +226,7 @@ const exportCustomerLedgerPDF = async (req, res) => {
       "Content-Disposition",
       `attachment; filename=product_summary_${customer_id}_${fromDate}_to_${toDate}.pdf`
     );
+
     doc.pipe(res);
 
     doc.fontSize(16).text("Product-wise Sales Summary", { align: "center" });
@@ -237,10 +247,7 @@ const exportCustomerLedgerPDF = async (req, res) => {
 
     productSummaryRes.rows.forEach((r) => {
       doc.text(r.product_name, col.p);
-      doc.text(r.total_quantity, col.q, doc.y, {
-        align: "right",
-        width: 80,
-      });
+      doc.text(r.total_quantity, col.q, doc.y, { align: "right", width: 80 });
       doc.text(Number(r.total_amount).toFixed(2), col.a, doc.y, {
         align: "right",
         width: 80,
@@ -260,3 +267,5 @@ module.exports = {
   exportCustomerLedgerCSV,
   exportCustomerLedgerPDF,
 };
+
+

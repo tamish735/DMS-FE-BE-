@@ -14,6 +14,7 @@ import StockReconciliation from "./components/StockReconciliation";
 import { Toaster } from "react-hot-toast";
 import "./App.css";
 import MonthlyLedger from "./components/MonthlyLedger";
+import ClearDues from "./components/ClearDues";
 
 /* =========================
    AUTH UTILS
@@ -97,6 +98,16 @@ function App() {
           <DailyStock onStockSaved={() => setStockRefreshKey((k) => k + 1)} />
         </PageLayout>
       )}
+
+
+
+      {activePage === "clearDues" && (
+        <PageLayout title="Clear Dues" onBack={() => navigate("dashboard")}>
+        <ClearDues />
+        </PageLayout>
+      )}
+
+
 
       {activePage === "stockReconciliation" && (
         <PageLayout title="Stock Reconciliation" onBack={() => navigate("dashboard")}>
